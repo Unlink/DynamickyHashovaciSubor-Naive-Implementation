@@ -4,26 +4,31 @@
 package test;
 
 import dynhassubor.DynHashSubor;
-import dynhassubor.IKluc;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
+import java.util.List;
 import java.util.Random;
 
 /**
  *
  * @author Unlink
  */
-public class Test2 {
+public class Test4 {
 	public static void main(String[] args) {
 		MojZaznamMapper mapper = new MojZaznamMapper();
-		File subor = new File("subor2.bin");
+		File subor = new File("subor4.bin");
 		//subor.delete();
 		Random rn = new Random();
 		try (DynHashSubor<MojZaznam> s = new DynHashSubor(mapper, subor, 4, 7)){
+			
+			//Vypis obsahu suboru
+			List<MojZaznam> zzs = s.dajVsetko();
+			System.out.println("Vypisujem obsah suboru ("+zzs.size()+")");
+			for (MojZaznam zz : zzs) {
+				System.out.println(zz.getString());
+			}
 			
 			System.out.println("Vkladám 2000 cisel");
 			HashSet<Integer> ints = new HashSet<>();
@@ -87,6 +92,28 @@ public class Test2 {
 					System.err.println("Nevedel som vymazať :/");
 				}
 			}
+			
+			System.out.println("Vkladám 26 cisel");
+			ints.clear();
+			for (int i = 0; i < 26; i++) {
+				int r;
+				while (ints.contains(r = rn.nextInt()));
+				s.vloz(new MojZaznam(r, "Zaznam cislo "+r));
+				ints.add(r);
+			}
+			
+			System.out.println("Skusam vsetky nasjt");
+			
+			//Skusime všetky najsť
+			for (Integer aInt : ints) {
+				MojZaznam z = s.najdi(new IntovyKluc(aInt));
+				if (z == null) {
+					System.err.println("Nenasiel som "+aInt);
+				}
+				else if (!z.getString().equals("Zaznam cislo "+aInt)) {
+					System.err.println("Chyba "+aInt+" -> "+z.getString());
+				}
+			};
 			
 		}
 		catch (Exception ex) {

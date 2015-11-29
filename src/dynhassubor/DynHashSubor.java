@@ -252,6 +252,20 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 		size--;
 		return true;
 	}
+	
+	public List<T> dajVsetko() throws IOException {
+		LinkedList<T> list = new LinkedList<>();
+		for (int index : strom.dajAlokovaneBloky()) {
+			while (index != BinStrom.EMPTY_ADDR) {
+				Blok<T> blok = nacitajBlok(index);
+				for (T zaznam : blok.dajZaznamy()) {
+					list.add(zaznam);
+				}
+				index = blok.getDalsi();
+			}
+		}
+		return list;
+	}
 
 	private Blok nacitajBlok(int index) throws IOException {
 		Blok<T> blok = new Blok<>(index);

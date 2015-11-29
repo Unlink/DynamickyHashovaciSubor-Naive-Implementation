@@ -210,6 +210,27 @@ public class BinStrom {
 		catch (EOFException e) {
 		}
 	}
+	
+	public List<Integer> dajAlokovaneBloky() {
+		Stack<Uzol> zasobnik = new Stack<>();
+		LinkedList<Integer> asresy = new LinkedList<>();
+		zasobnik.push(koren);
+		
+		while (!zasobnik.isEmpty()) {
+			Uzol u = zasobnik.pop();
+			if (u.adresa == INNER_NODE) {
+				zasobnik.push(u.nula);
+				zasobnik.push(u.jedna);
+			}
+			else {
+				if (u.adresa != EMPTY_ADDR) {
+					asresy.add(u.adresa);
+				}
+			}
+		}
+		return asresy;
+	}
+	
 	public class Uzol {
 		Uzol nula;
 		Uzol jedna;
