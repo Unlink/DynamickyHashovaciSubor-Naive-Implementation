@@ -90,10 +90,10 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 	private void vytvorPrazdny() throws IOException {
 		subor.createNewFile();
 		ra = new RandomAccessFile(subor, "rw");
-		alokovanychBlokov = 2;
+		alokovanychBlokov = 0;
 		size = 0;
 		ra.setLength(alokovanychBlokov*velkostBloku);
-		strom.inicializuj(0, 1);
+		strom.inicializuj(BinStrom.EMPTY_ADDR, BinStrom.EMPTY_ADDR);
 	}
 	
 	public T najdi(IKluc kluc) throws IOException {

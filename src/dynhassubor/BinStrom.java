@@ -111,9 +111,14 @@ public class BinStrom {
 				u = p.jedna;
 			}
 			else {
+				u = null;
 				break;
 			}
 		}
+		if (p == koren && u != null) {
+			bloky.add(u.adresa);
+			u.adresa = EMPTY_ADDR;
+		} 
 		
 		return bloky;
 	}
