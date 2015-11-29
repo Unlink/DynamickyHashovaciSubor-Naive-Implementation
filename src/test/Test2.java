@@ -22,8 +22,8 @@ public class Test2 {
 		MojZaznamMapper mapper = new MojZaznamMapper();
 		File subor = new File("subor2.bin");
 		//subor.delete();
-		Random rn = new Random(1);
-		try (DynHashSubor<MojZaznam> s = new DynHashSubor(mapper, subor, 4)){
+		Random rn = new Random();
+		try (DynHashSubor<MojZaznam> s = new DynHashSubor(mapper, subor, 4, 7)){
 			
 			System.out.println("Vkladám 2000 cisel");
 			HashSet<Integer> ints = new HashSet<>();

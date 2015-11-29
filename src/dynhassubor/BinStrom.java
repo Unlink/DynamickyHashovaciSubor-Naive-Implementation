@@ -56,6 +56,22 @@ public class BinStrom {
 	public int najdiBlok(IKluc paKluc) {
 		return travrzujStrom(paKluc.dajHash()).pop().adresa;
 	}
+	
+	public int najdiBrata(IKluc paKluc) {
+		Stack<Uzol> cesta = travrzujStrom(paKluc.dajHash());
+		Uzol uzol = cesta.pop();
+		Uzol p = cesta.pop();
+		if (p.jedna == uzol) {
+			return p.nula.adresa < 0 ? EMPTY_ADDR : p.nula.adresa;
+		}
+		else {
+			return p.jedna.adresa < 0 ? EMPTY_ADDR : p.jedna.adresa;
+		}
+	}
+	
+	public int dajLevel(IKluc paKluc) {
+		return travrzujStrom(paKluc.dajHash()).size()-1;
+	}
 
 	public int rozdelUzol(IKluc paKluc, int addr0, int addr1) {
 		Stack<Uzol> cesta = travrzujStrom(paKluc.dajHash());
@@ -115,7 +131,7 @@ public class BinStrom {
 				break;
 			}
 		}
-		if (p == koren && u != null) {
+		if (p == koren && u != null && u.adresa != EMPTY_ADDR) { //Neviem prečo u.adresa != EMPTY_ADDR => porozmyslat
 			bloky.add(u.adresa);
 			u.adresa = EMPTY_ADDR;
 		} 

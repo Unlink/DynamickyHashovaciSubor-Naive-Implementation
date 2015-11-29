@@ -18,7 +18,7 @@ public class Test3 {
 	public static void main(String[] args) {
 		MojZaznamMapper mapper = new MojZaznamMapper();
 		File subor = new File("subor3.bin");
-		try (DynHashSubor<MojZaznam> s = new DynHashSubor(mapper, subor, 4)){
+		try (DynHashSubor<MojZaznam> s = new DynHashSubor(mapper, subor, 4, 7)){
 			
 			for (int i = 0; i < 64; i++) {
 				MojZaznam z = s.najdi(new IntovyKluc(i));

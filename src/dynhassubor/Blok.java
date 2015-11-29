@@ -15,11 +15,14 @@ public class Blok<T extends IZaznam> {
 	
 	private int platnych;
 	
+	private int dalsi;
+	
 	private LinkedList<T> zaznamy;
 
 	public Blok(int paIndex) {
 		this.index = paIndex;
 		this.platnych = 0;
+		this.dalsi = BinStrom.EMPTY_ADDR;
 		zaznamy = new LinkedList<>();
 	}
 
@@ -60,5 +63,12 @@ public class Blok<T extends IZaznam> {
 	public LinkedList<T> dajZaznamy() {
 		return zaznamy;
 	}
-	
+
+	public int getDalsi() {
+		return dalsi;
+	}
+
+	public void setDalsi(int paDalsi) {
+		this.dalsi = paDalsi;
+	}
 }

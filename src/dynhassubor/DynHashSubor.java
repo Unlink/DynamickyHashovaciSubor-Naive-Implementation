@@ -12,8 +12,11 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Stack;
 import java.util.TreeSet;
+import javafx.geometry.Insets;
 
 /**
  *
@@ -38,13 +41,16 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 	private BinStrom strom;
 	
 	private int size;
+	
+	private int maxLevel;
 
-	public DynHashSubor(IZaznamMapper<T> paMapper, File paSubor, int paPocZaznamov) throws IOException {
+	public DynHashSubor(IZaznamMapper<T> paMapper, File paSubor, int paPocZaznamov, int maxLevel) throws IOException {
 		this.mapper = paMapper;
 		this.subor = paSubor;
 		this.pocZaznamov = paPocZaznamov;
+		this.maxLevel = maxLevel;
 		this.strom = new BinStrom();
-		this.velkostBloku = 4 + paPocZaznamov*paMapper.dajVelkostZaznamu(); //Pocet validnych zaznamov + n zaznamov
+		this.velkostBloku = 4 + 4 + paPocZaznamov*paMapper.dajVelkostZaznamu(); //Pocet validnych zaznamov + n zaznamov + adresa dalsieho
 		
 		this.volneBloky = new TreeSet<>();
 		
@@ -98,11 +104,17 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 	
 	public T najdi(IKluc kluc) throws IOException {
 		int index = strom.najdiBlok(kluc);
-		if (index == BinStrom.EMPTY_ADDR) {
-			return null;
+		while (index != BinStrom.EMPTY_ADDR) {
+			Blok<T> blok = nacitajBlok(index);
+			T zaznam = blok.najdiZaznam(kluc);
+			if (zaznam != null) {
+				return zaznam;
+			}
+			else {
+				index = blok.getDalsi();
+			}
 		}
-		Blok<T> blok = nacitajBlok(index);
-		return blok.najdiZaznam(kluc);
+		return null;
 	}
 	
 	public boolean vloz(T zaznam) throws IOException {
@@ -114,11 +126,8 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 		}
 		else {
 			blok = nacitajBlok(index);
-			if (blok.najdiZaznam(zaznam.dajKluc()) != null) {
-				return false; //Akože duplikatny kluc
-			}
 		}
-		while (blok.getPlatnych() >= pocZaznamov) {
+		while (strom.dajLevel(zaznam.dajKluc()) < maxLevel && blok.getPlatnych() >= pocZaznamov) {
 			Blok<T> nula = new Blok<>(blok.getIndex());
 			Blok<T> jedna = new Blok<>(alokujBlok());
 			
@@ -161,6 +170,24 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 			}
 		}
 		
+		while (blok.getPlatnych() >= pocZaznamov) {
+			if (blok.najdiZaznam(zaznam.dajKluc()) != null) {
+				return false; //Akože duplikatny kluc
+			}
+			if (blok.getDalsi() != BinStrom.EMPTY_ADDR) {
+				blok = nacitajBlok(blok.getDalsi());
+			}
+			else {
+				int nextBlok = alokujBlok();
+				blok.setDalsi(nextBlok);
+				zapisBlok(blok);
+				blok = new Blok<>(nextBlok);
+			}
+		}
+		if (blok.najdiZaznam(zaznam.dajKluc()) != null) {
+			return false; //Akože duplikatny kluc
+		}
+		
 		blok.pridajZaznam(zaznam);
 		zapisBlok(blok);
 		
@@ -174,23 +201,51 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 			return false;
 		}
 		Blok<T> blok = nacitajBlok(index);
-		if (blok.vymazZaznam(kluc) == null) {
-			return false; //Akože som taky kluc nenašiel
+		Stack<Blok<T>> bloky = new Stack<>();
+		bloky.add(blok);
+		while (blok.vymazZaznam(kluc) == null) {
+			if (blok.getDalsi() != BinStrom.EMPTY_ADDR) {
+				blok = nacitajBlok(blok.getDalsi());
+				bloky.push(blok);
+			}
+			else {
+				return false;
+			}
 		}
 		
 		if (blok.getPlatnych() > 0) {
 			zapisBlok(blok);
 		}
+		else if (bloky.size() > 1) {
+			bloky.pop();
+			volneBloky.add(blok.getIndex());
+			int next = blok.getDalsi();
+			blok = bloky.pop();
+			blok.setDalsi(next);
+			zapisBlok(blok);
+			vacumm();
+		}
+		else if (blok.getDalsi() != BinStrom.EMPTY_ADDR) {
+			strom.nastavAdresu(kluc.dajHash(), blok.getDalsi());
+			volneBloky.add(blok.getIndex());
+			vacumm();
+		}
 		else {
-			List<Integer> uvolneneBloky = strom.spojBloky(kluc);
-			if (uvolneneBloky.size() > 0) {
-				for (int v : uvolneneBloky) {
-					volneBloky.add(v);
+			int brat = strom.najdiBrata(kluc);
+			if (brat == BinStrom.EMPTY_ADDR || nacitajBlok(brat).getDalsi() == BinStrom.EMPTY_ADDR) {
+				List<Integer> uvolneneBloky = strom.spojBloky(kluc);
+				if (uvolneneBloky.size() > 0) {
+					volneBloky.addAll(uvolneneBloky);
+					vacumm();
 				}
-				vacumm();
+				else {
+					zapisBlok(blok);
+				}
 			}
 			else {
-				zapisBlok(blok);
+				volneBloky.add(blok.getIndex());
+				vacumm();
+				strom.nastavAdresu(kluc.dajHash(), BinStrom.EMPTY_ADDR);
 			}
 		}
 		
@@ -203,12 +258,13 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 		ra.seek(index*velkostBloku);
 		byte[] raw = new byte[velkostBloku];
 		ra.read(raw);
-		ByteBuffer wrapped = ByteBuffer.wrap(raw, 0, 4);
+		ByteBuffer wrapped = ByteBuffer.wrap(raw, 0, 8);
 		int pocetZaznamov = wrapped.getInt();
+		blok.setDalsi(wrapped.getInt());
 		
 		for (int i=0; i<pocetZaznamov; i++) {
 			byte[] zaznam = new byte[mapper.dajVelkostZaznamu()];
-			System.arraycopy(raw, 4+i*mapper.dajVelkostZaznamu(), zaznam, 0, mapper.dajVelkostZaznamu()); //preskočíme prvé 4 lebo to je počet zaznamov a pozom zvyšok je jeden zaznam
+			System.arraycopy(raw, 8+i*mapper.dajVelkostZaznamu(), zaznam, 0, mapper.dajVelkostZaznamu()); //preskočíme prvé 4 lebo to je počet zaznamov a pozom zvyšok je jeden zaznam
 			blok.pridajZaznam(mapper.nacitajZaznam(zaznam));
 		}
 		return blok;
@@ -217,15 +273,16 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 	private void zapisBlok(Blok<T> blok) throws IOException {
 		ra.seek(blok.getIndex()*velkostBloku);
 		byte[] raw = new byte[velkostBloku];
-		ByteBuffer dbuf = ByteBuffer.allocate(4);
+		ByteBuffer dbuf = ByteBuffer.allocate(8);
 		dbuf.putInt(blok.getPlatnych());
+		dbuf.putInt(blok.getDalsi());
 		byte[] pocetPlatnych = dbuf.array();
-		System.arraycopy(pocetPlatnych, 0, raw, 0, 4);
+		System.arraycopy(pocetPlatnych, 0, raw, 0, 8);
 		
 		int i=0;
 		for (T z : blok.dajZaznamy()) {
 			byte[] zaznam = mapper.serializujZaznam(z);
-			System.arraycopy(zaznam, 0, raw, 4+i*mapper.dajVelkostZaznamu(), mapper.dajVelkostZaznamu());
+			System.arraycopy(zaznam, 0, raw, 8+i*mapper.dajVelkostZaznamu(), mapper.dajVelkostZaznamu());
 			i++;
 		}
 		ra.write(raw);

@@ -17,7 +17,7 @@ public class TestMain {
 		
 		MojZaznamMapper mapper = new MojZaznamMapper();
 		File subor = new File("subor.bin");
-		try (DynHashSubor<MojZaznam> s = new DynHashSubor(mapper, subor, 3)){
+		try (DynHashSubor<MojZaznam> s = new DynHashSubor(mapper, subor, 3, 7)){
 			for (int i = 10; i < 1000; i++) {
 				
 			}
