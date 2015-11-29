@@ -35,6 +35,8 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 	private TreeSet<Integer> volneBloky;
 	
 	private BinStrom strom;
+	
+	private int size;
 
 	public DynHashSubor(IZaznamMapper<T> paMapper, File paSubor, int paPocZaznamov) throws IOException {
 		this.mapper = paMapper;
@@ -59,6 +61,7 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 		//Uložime metadata
 		ObjectOutputStream ois = new ObjectOutputStream(new FileOutputStream(new File(subor.getAbsolutePath()+".metadata")));
 		ois.writeInt(alokovanychBlokov);
+		ois.writeInt(size);
 		ois.writeInt(volneBloky.size()); // Pocet volnych blokov
 		for (Integer addr : volneBloky) {
 			ois.writeInt(addr); //Zapiseme volne bloky
@@ -71,6 +74,7 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 		ra = new RandomAccessFile(subor, "rw");
 		ObjectInputStream ois = new ObjectInputStream(new FileInputStream(new File(subor.getAbsolutePath()+".metadata")));
 		alokovanychBlokov = ois.readInt();
+		size = ois.readInt();
 		int volnych = ois.readInt();
 		for (int i = 0; i < volnych; i++) {
 			volneBloky.add(ois.readInt());
@@ -83,21 +87,32 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 		subor.createNewFile();
 		ra = new RandomAccessFile(subor, "rw");
 		alokovanychBlokov = 2;
+		size = 0;
 		ra.setLength(alokovanychBlokov*velkostBloku);
 		strom.inicializuj(0, 1);
 	}
 	
 	public T najdi(IKluc kluc) throws IOException {
 		int index = strom.najdiBlok(kluc);
+		if (index == BinStrom.EMPTY_ADDR) {
+			return null;
+		}
 		Blok<T> blok = nacitajBlok(index);
 		return blok.najdiZaznam(kluc);
 	}
 	
 	public boolean vloz(T zaznam) throws IOException {
 		int index = strom.najdiBlok(zaznam.dajKluc());
-		Blok<T> blok = nacitajBlok(index);
-		if (blok.najdiZaznam(zaznam.dajKluc()) != null) {
-			return false; //Akože duplikatny kluc
+		Blok<T> blok;
+		if (index == BinStrom.EMPTY_ADDR) {
+			blok = new Blok<>(alokujBlok());
+			strom.nastavAdresu(zaznam.dajKluc().dajHash(), blok.getIndex());
+		}
+		else {
+			blok = nacitajBlok(index);
+			if (blok.najdiZaznam(zaznam.dajKluc()) != null) {
+				return false; //Akože duplikatny kluc
+			}
 		}
 		while (blok.getPlatnych() >= pocZaznamov) {
 			Blok<T> nula = new Blok<>(blok.getIndex());
@@ -114,8 +129,6 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 					jedna.pridajZaznam(z);
 				}
 			}
-			zapisBlok(nula);
-			zapisBlok(jedna);
 			if (((zaznam.dajKluc().dajHash() >> bit) & 0x1) == 0) {
 				blok = nula;
 			}
@@ -123,16 +136,39 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 				blok = jedna;
 			}
 			
+			/**
+			 * Magic :)
+			 */
+			
+			//Ak sa aj po rozdelení všetko narvalo do jedného, tak ten druhý dealokujeme ak don nepride novy zaznam
+			if (nula.getPlatnych() == 0 && blok != nula) {
+				strom.nastavAdresu(zaznam.dajKluc().dajHash() ^ (0x1 << bit), BinStrom.EMPTY_ADDR); //Adresa toho uzla na smer nula (musime vynulovať rozhodovací bit)
+				volneBloky.add(nula.getIndex());
+				zapisBlok(jedna);
+			}
+			else if (jedna.getPlatnych() == 0 && blok != jedna) {
+				strom.nastavAdresu(zaznam.dajKluc().dajHash() ^ (0x1 << bit), BinStrom.EMPTY_ADDR); //Adresa toho uzla na smer jedna (musime dat na 1 rozhodovací bit)
+				volneBloky.add(jedna.getIndex());
+				zapisBlok(nula);
+			}
+			else {
+				zapisBlok(nula);
+				zapisBlok(jedna);
+			}
 		}
 		
 		blok.pridajZaznam(zaznam);
 		zapisBlok(blok);
 		
+		size++;
 		return true;
 	}
 	
 	public boolean vymaz(IKluc kluc) throws IOException {
 		int index = strom.najdiBlok(kluc);
+		if (index == BinStrom.EMPTY_ADDR) {
+			return false;
+		}
 		Blok<T> blok = nacitajBlok(index);
 		if (blok.vymazZaznam(kluc) == null) {
 			return false; //Akože som taky kluc nenašiel
@@ -142,15 +178,20 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 			zapisBlok(blok);
 		}
 		else {
-			if (strom.spojBloky(kluc)) {
-				volneBloky.add(blok.getIndex());
+			int[] uvolneneBloky = strom.spojBloky(kluc);
+			if (uvolneneBloky.length > 0) {
+				for (int v : uvolneneBloky) {
+					volneBloky.add(v);
+				}
 				vacumm();
 			}
 			else {
+				System.out.println("Nezapisujem");
 				zapisBlok(blok);
 			}
 		}
 		
+		size--;
 		return true;
 	}
 

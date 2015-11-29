@@ -7,6 +7,8 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Stack;
 
 /**
@@ -16,6 +18,9 @@ import java.util.Stack;
 public class BinStrom {
 	
 	private Uzol koren;
+	
+	public static final int EMPTY_ADDR = -1;
+	private static final int INNER_NODE = -2;
 
 	public BinStrom() {
 		this.koren = new Uzol();
@@ -33,7 +38,7 @@ public class BinStrom {
 		int hash = paKluc.dajHash();
 		Uzol u = koren;
 		
-		while (u.adresa < 0) {
+		while (u.adresa == INNER_NODE) {
 			if ((hash &0x1) == 0) {
 				u = u.nula;
 			} 
@@ -50,7 +55,7 @@ public class BinStrom {
 		int hash = paKluc.dajHash();
 		Uzol u = koren;
 		int level = 0;
-		while (u.adresa < 0) {
+		while (u.adresa == INNER_NODE) {
 			if ((hash &0x1) == 0) {
 				u = u.nula;
 			} 
@@ -61,7 +66,7 @@ public class BinStrom {
 			level++;
 		}
 		
-		u.adresa = -1;
+		u.adresa = INNER_NODE;
 		u.nula = new Uzol();
 		u.nula.adresa = addr0;
 		
@@ -69,14 +74,11 @@ public class BinStrom {
 		u.jedna.adresa = addr1;
 		return level;
 	}
-
-	public boolean spojBloky(IKluc paKluc) {
-		int hash = paKluc.dajHash();
+	
+	public void nastavAdresu(int hash, int adresa) {
 		Uzol u = koren;
-		Uzol p = null;
 		
-		while (u.adresa < 0) {
-			p = u;
+		while (u.adresa == INNER_NODE) {
 			if ((hash &0x1) == 0) {
 				u = u.nula;
 			} 
@@ -85,26 +87,51 @@ public class BinStrom {
 			}
 			hash = hash >> 1;
 		}
+		u.adresa = adresa;
+	}
+
+	public int[] spojBloky(IKluc paKluc) {
+		int hash = paKluc.dajHash();
+		Uzol u = koren;
+		Stack<Uzol> cesta = new Stack<>();
+		cesta.push(u);
+		
+		while (u.adresa == INNER_NODE) {
+			if ((hash &0x1) == 0) {
+				u = u.nula;
+			} 
+			else {
+				u = u.jedna;
+			}
+			hash = hash >> 1;
+			cesta.push(u);
+		}
+		
+		u = cesta.pop();
+		Uzol p = cesta.pop();
 		
 		if (p == koren) {
-			return false;
+			return new int[0]; //Žiadne bloky neuvolnujeme
 		}
 		else {
+			int pom = u.adresa;
 			if (u == p.nula) {
-				if (p.jedna.adresa < 0) { //Brat ma potomkov, -> nemôžme spojit
-					return false;
+				if (p.jedna.adresa == INNER_NODE) { //Brat ma potomkov, -> nemôžme spojit
+					u.adresa = EMPTY_ADDR;
+					return new int[] {pom};
 				}
 				p.adresa = p.jedna.adresa;
 			}
 			else {
-				if (p.nula.adresa < 0) { //Brat ma potomkov, -> nemôžme spojit
-					return false;
+				if (p.nula.adresa == INNER_NODE) { //Brat ma potomkov, -> nemôžme spojit
+					u.adresa = EMPTY_ADDR;
+					return new int[] {pom};
 				}
 				p.adresa = p.nula.adresa;
 			}
 			p.nula = null;
 			p.jedna = null;
-			return true;
+			return new int[] {pom};
 		}
 	}
 
@@ -117,7 +144,7 @@ public class BinStrom {
 		
 		while (!zasobnik.isEmpty()) {
 			StackedUzol u = zasobnik.pop();
-			if (u.uzol.adresa < 0) {
+			if (u.uzol.adresa == INNER_NODE) {
 				StackedUzol nula = new StackedUzol();
 				nula.uzol = u.uzol.nula;
 				nula.level = u.level+1;
@@ -143,7 +170,6 @@ public class BinStrom {
 				}
 				paOis.writeInt(cesta);
 				paOis.writeInt(u.uzol.adresa);
-				
 			}
 		}
 	}
@@ -156,7 +182,6 @@ public class BinStrom {
 				int adresa = paOis.readInt();
 				
 				Uzol u = koren;
-			
 				
 				for (int i = 0; i < level; i++) {
 					if ((cesta & 0x1) == 0) {
@@ -180,11 +205,10 @@ public class BinStrom {
 		catch (EOFException e) {
 		}
 	}
-	
 	public class Uzol {
 		Uzol nula;
 		Uzol jedna;
-		int adresa = -1;
+		int adresa = INNER_NODE;
 	}
 	
 	public class StackedUzol {
