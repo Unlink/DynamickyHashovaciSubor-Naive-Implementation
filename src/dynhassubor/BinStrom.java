@@ -34,66 +34,9 @@ public class BinStrom {
 		koren.jedna.adresa = addr1;
 	}
 
-	public int najdiBlok(IKluc paKluc) {
-		int hash = paKluc.dajHash();
-		Uzol u = koren;
-		
-		while (u.adresa == INNER_NODE) {
-			if ((hash &0x1) == 0) {
-				u = u.nula;
-			} 
-			else {
-				u = u.jedna;
-			}
-			hash = hash >> 1;
-		}
-		
-		return u.adresa;
-	}
-
-	public int rozdelUzol(IKluc paKluc, int addr0, int addr1) {
-		int hash = paKluc.dajHash();
-		Uzol u = koren;
-		int level = 0;
-		while (u.adresa == INNER_NODE) {
-			if ((hash &0x1) == 0) {
-				u = u.nula;
-			} 
-			else {
-				u = u.jedna;
-			}
-			hash = hash >> 1;
-			level++;
-		}
-		
-		u.adresa = INNER_NODE;
-		u.nula = new Uzol();
-		u.nula.adresa = addr0;
-		
-		u.jedna = new Uzol();
-		u.jedna.adresa = addr1;
-		return level;
-	}
-	
-	public void nastavAdresu(int hash, int adresa) {
-		Uzol u = koren;
-		
-		while (u.adresa == INNER_NODE) {
-			if ((hash &0x1) == 0) {
-				u = u.nula;
-			} 
-			else {
-				u = u.jedna;
-			}
-			hash = hash >> 1;
-		}
-		u.adresa = adresa;
-	}
-
-	public int[] spojBloky(IKluc paKluc) {
-		int hash = paKluc.dajHash();
-		Uzol u = koren;
+	private Stack<Uzol> travrzujStrom(int hash) {
 		Stack<Uzol> cesta = new Stack<>();
+		Uzol u = koren;
 		cesta.push(u);
 		
 		while (u.adresa == INNER_NODE) {
@@ -107,7 +50,32 @@ public class BinStrom {
 			cesta.push(u);
 		}
 		
-		u = cesta.pop();
+		return cesta;
+	}
+	
+	public int najdiBlok(IKluc paKluc) {
+		return travrzujStrom(paKluc.dajHash()).pop().adresa;
+	}
+
+	public int rozdelUzol(IKluc paKluc, int addr0, int addr1) {
+		Stack<Uzol> cesta = travrzujStrom(paKluc.dajHash());
+		Uzol u = cesta.pop();
+		u.adresa = INNER_NODE;
+		u.nula = new Uzol();
+		u.nula.adresa = addr0;
+		
+		u.jedna = new Uzol();
+		u.jedna.adresa = addr1;
+		return cesta.size();
+	}
+	
+	public void nastavAdresu(int hash, int adresa) {
+		travrzujStrom(hash).pop().adresa =  adresa;
+	}
+
+	public int[] spojBloky(IKluc paKluc) {
+		Stack<Uzol> cesta = travrzujStrom(paKluc.dajHash());
+		Uzol u = cesta.pop();
 		Uzol p = cesta.pop();
 		
 		if (p == koren) {

@@ -186,7 +186,6 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 				vacumm();
 			}
 			else {
-				System.out.println("Nezapisujem");
 				zapisBlok(blok);
 			}
 		}
