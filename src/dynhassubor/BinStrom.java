@@ -73,34 +73,49 @@ public class BinStrom {
 		travrzujStrom(hash).pop().adresa =  adresa;
 	}
 
-	public int[] spojBloky(IKluc paKluc) {
+	public List<Integer> spojBloky(IKluc paKluc) {
 		Stack<Uzol> cesta = travrzujStrom(paKluc.dajHash());
 		Uzol u = cesta.pop();
 		Uzol p = cesta.pop();
+		LinkedList<Integer> bloky = new LinkedList<>();
 		
-		if (p == koren) {
-			return new int[0]; //Žiadne bloky neuvolnujeme
-		}
-		else {
-			int pom = u.adresa;
+		while (p != koren) {
+			if (u.adresa >= 0) {
+				bloky.add(u.adresa);
+			}
+			
 			if (u == p.nula) {
-				if (p.jedna.adresa == INNER_NODE) { //Brat ma potomkov, -> nemôžme spojit
+				if (p.jedna.adresa == INNER_NODE) { //Brat je vnutorny uzol -> nemôžme spajať
 					u.adresa = EMPTY_ADDR;
-					return new int[] {pom};
+					break;
 				}
 				p.adresa = p.jedna.adresa;
 			}
 			else {
-				if (p.nula.adresa == INNER_NODE) { //Brat ma potomkov, -> nemôžme spojit
+				if (p.nula.adresa == INNER_NODE) { //Brat je vnutorny uzol -> nemôžme spajať
 					u.adresa = EMPTY_ADDR;
-					return new int[] {pom};
+					break;
 				}
 				p.adresa = p.nula.adresa;
 			}
 			p.nula = null;
 			p.jedna = null;
-			return new int[] {pom};
+
+			u = p;
+			p = cesta.pop();
+			
+			if (u == p.jedna && p.nula.adresa == EMPTY_ADDR) {
+				u = p.nula;
+			}
+			else if (u == p.nula && p.jedna.adresa == EMPTY_ADDR) {
+				u = p.jedna;
+			}
+			else {
+				break;
+			}
 		}
+		
+		return bloky;
 	}
 
 	public void serializeTo(ObjectOutputStream paOis) throws IOException {
@@ -138,6 +153,7 @@ public class BinStrom {
 				}
 				paOis.writeInt(cesta);
 				paOis.writeInt(u.uzol.adresa);
+				//System.out.println(u.level+"::"+cesta+"::"+u.uzol.adresa);
 			}
 		}
 	}

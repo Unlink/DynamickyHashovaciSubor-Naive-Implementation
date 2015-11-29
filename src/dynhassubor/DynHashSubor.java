@@ -12,6 +12,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.TreeSet;
 
 /**
@@ -60,11 +61,14 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 		ra.close();
 		//Uložime metadata
 		ObjectOutputStream ois = new ObjectOutputStream(new FileOutputStream(new File(subor.getAbsolutePath()+".metadata")));
+		//System.out.println("Blokov: "+alokovanychBlokov);
 		ois.writeInt(alokovanychBlokov);
+		//System.out.println("Size: "+size);
 		ois.writeInt(size);
 		ois.writeInt(volneBloky.size()); // Pocet volnych blokov
 		for (Integer addr : volneBloky) {
 			ois.writeInt(addr); //Zapiseme volne bloky
+			//System.out.println("Addr:"+addr);
 		}
 		strom.serializeTo(ois);
 		ois.close();
@@ -178,8 +182,8 @@ public class DynHashSubor<T extends IZaznam> implements Closeable {
 			zapisBlok(blok);
 		}
 		else {
-			int[] uvolneneBloky = strom.spojBloky(kluc);
-			if (uvolneneBloky.length > 0) {
+			List<Integer> uvolneneBloky = strom.spojBloky(kluc);
+			if (uvolneneBloky.size() > 0) {
 				for (int v : uvolneneBloky) {
 					volneBloky.add(v);
 				}
